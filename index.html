@@ -29,7 +29,6 @@ body{
   box-shadow:0 12px 30px rgba(0,0,0,.08);
 }
 
-/* ★ 新增：次数显示 */
 .stat{
   text-align:center;
   font-size:18px;
@@ -51,7 +50,7 @@ body{
 .meaning{
   margin-top:26px;
   font-size:32px;
-  font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;
   text-align:center;
   background:#fafafa;
   border-radius:22px;
@@ -74,6 +73,7 @@ body{
 .prev{background:#e5e5ea}
 .unknown{background:#ff9f0a;color:#fff}
 .known{background:#007aff;color:#fff}
+
 .footer{
   margin-top:28px;
   display:flex;
@@ -82,6 +82,59 @@ body{
   gap:14px;
   color:#6e6e73;
 }
+
+/* ===== 悬浮窗 ===== */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+.modal-content{
+  background:#fff;
+  width:90%;
+  max-width:900px;
+  max-height:80vh;
+  overflow:auto;
+  border-radius:20px;
+  padding:20px;
+}
+.modal h2{
+  margin:0 0 12px;
+  text-align:center;
+}
+.close{
+  position:sticky;
+  top:0;
+  float:right;
+  cursor:pointer;
+  font-size:18px;
+}
+
+/* ===== 表格 ===== */
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:16px;
+}
+th,td{
+  padding:8px 10px;
+  border-bottom:1px solid #eee;
+  text-align:center;
+}
+th{
+  background:#fafafa;
+}
+td.en{
+  font-family:"Times New Roman",serif;
+}
+td.cn{
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+}
+
 @media(max-width:600px){
   .word{font-size:52px}
   .meaning{font-size:26px}
@@ -93,7 +146,6 @@ body{
 <div class="container">
 <div class="card">
 
-<!-- ★ 新增：显示次数 -->
 <div id="stat" class="stat"></div>
 
 <div id="word" class="word"></div>
@@ -109,6 +161,7 @@ body{
 <div class="footer">
   <div>待背：<span id="todo"></span> ｜ 已背：<span id="done"></span></div>
   <div>
+    <button onclick="openModal()">📋 查看所有单词</button>
     <button onclick="exportProgress()">📤 导出进度</button>
     <button onclick="importProgress()">📥 导入进度</button>
     <input type="file" id="importFile" accept=".json" style="display:none">
@@ -117,6 +170,26 @@ body{
 
 </div>
 </div>
+
+<!-- ===== 悬浮窗 ===== -->
+<div id="modal" class="modal" onclick="closeModal(event)">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">✖</span>
+    <h2>📘 全部单词一览（A–Z）</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>英文</th>
+          <th>中文</th>
+          <th>不认识</th>
+          <th>认识</th>
+        </tr>
+      </thead>
+      <tbody id="wordTable"></tbody>
+    </table>
+  </div>
+</div>
+
 
 <script>
 /* ===== 单词数据（保持原有，只加 unknown） ===== */
@@ -500,6 +573,28 @@ function save(){
     JSON.stringify(words.map(w=>({known:w.known,unknown:w.unknown})))
   );
 }
+
+  /* ===== 悬浮窗逻辑 ===== */
+function openModal(){
+  const tbody=document.getElementById("wordTable");
+  tbody.innerHTML="";
+  [...words].sort((a,b)=>a.word.localeCompare(b.word)).forEach(w=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td class="en">${w.word}</td>
+        <td class="cn">${w.meaning}</td>
+        <td>${w.unknown}</td>
+        <td>${w.known}</td>
+      </tr>`;
+  });
+  document.getElementById("modal").style.display="flex";
+}
+function closeModal(e){
+  if(!e || e.target.id==="modal"){
+    document.getElementById("modal").style.display="none";
+  }
+}
+
 
 /* ===== 导出 ===== */
 function exportProgress(){
