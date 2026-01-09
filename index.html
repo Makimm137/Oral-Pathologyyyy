@@ -504,29 +504,63 @@ if(saved){
   });
 }
 
-/* ===== 调度池 ===== */
+
+
+  
+/* ===== 调度池 (修改版) ===== */
 let pool = [];
-function buildPool(){
-  pool=[];
-  words.forEach((w,i)=>{
-    if(w.known<3){
-      pool.push(i,i,i);
-    }else{
-      for(let j=0;j<Math.ceil(w.known*1.5);j++) pool.push(i);
-    }
-  });
-}
+
 function pickNext(){
-  buildPool();
-  let idx;
-  do{
-    idx = pool[Math.floor(Math.random()*pool.length)];
-  }while(history.slice(-10).includes(idx));
-  history.push(idx);
-  if(history.length>30) history.shift();
-  currentIndex = idx;
+  // 1. 【优先出现】找出所有“没出现过”的单词 (known=0 且 unknown=0)
+  const newWords = [];
+  words.forEach((w, i) => {
+    if (w.known === 0 && w.unknown === 0) newWords.push(i);
+  });
+
+  if (newWords.length > 0) {
+    // 如果有新词，直接从新词里随机选一个，不走复习逻辑
+    currentIndex = newWords[Math.floor(Math.random() * newWords.length)];
+  } else {
+    // 2. 【复习逻辑】没有新词了，构建复习池
+    pool = [];
+    words.forEach((w, i) => {
+      // ★ 核心修改：认识超过10次，直接跳过，不再出现
+      if (w.known > 10) return;
+
+      // 简单权重：不认识的(unknown)次数越多，在池子里份数越多，出现概率越大
+      // 基础放1个，每不认识1次多放2个
+      let weight = 1 + (w.unknown * 2);
+      
+      // 认识次数比较少时(小于3次)，额外增加权重强迫复习
+      if (w.known < 3) weight += 3;
+
+      for (let k = 0; k < weight; k++) pool.push(i);
+    });
+
+    // 如果所有词都认识超过10次了，池子为空
+    if (pool.length === 0) {
+      alert("太棒了！所有单词都已熟记（认识超过10次）！");
+      return; 
+    }
+
+    // 从池中随机抽取，并尝试避开最近10个历史记录
+    let idx;
+    let safeCount = 0;
+    do {
+      idx = pool[Math.floor(Math.random() * pool.length)];
+      safeCount++;
+    } while (history.slice(-10).includes(idx) && safeCount < 50);
+    
+    currentIndex = idx;
+  }
+
+  // 记录历史
+  history.push(currentIndex);
+  if(history.length > 30) history.shift();
 }
 
+
+  
 /* ===== 渲染 ===== */
 function render(){
   const w = words[currentIndex];
