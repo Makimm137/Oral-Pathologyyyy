@@ -508,10 +508,10 @@ if(saved){
 
 
   
-/* ===== 调度池 (修改版) ===== */
+/* ===== 调度池 (防崩溃最终版) ===== */
 let pool = [];
 
-function pickNext(){
+function pickNext() {
   // 1. 【优先出现】找出所有“没出现过”的单词 (known=0 且 unknown=0)
   const newWords = [];
   words.forEach((w, i) => {
@@ -519,60 +519,86 @@ function pickNext(){
   });
 
   if (newWords.length > 0) {
-    // 如果有新词，直接从新词里随机选一个，不走复习逻辑
+    // 如果有新词，直接从新词里随机选一个
     currentIndex = newWords[Math.floor(Math.random() * newWords.length)];
   } else {
     // 2. 【复习逻辑】没有新词了，构建复习池
     pool = [];
     words.forEach((w, i) => {
-      // ★ 核心修改：认识超过10次，直接跳过，不再出现
+      // 认识超过10次，直接跳过
       if (w.known > 10) return;
 
-      // 简单权重：不认识的(unknown)次数越多，在池子里份数越多，出现概率越大
-      // 基础放1个，每不认识1次多放2个
+      // 权重计算：不认识次数越多，出现概率越大
       let weight = 1 + (w.unknown * 2);
-      
-      // 认识次数比较少时(小于3次)，额外增加权重强迫复习
-      if (w.known < 3) weight += 3;
+      if (w.known < 3) weight += 3; // 刚认识的加强复习
 
       for (let k = 0; k < weight; k++) pool.push(i);
     });
 
-    // 如果所有词都认识超过10次了，池子为空
+    // ★ 关键修改：如果池子空了（全背完了），标记为 -1，防止报错白屏
     if (pool.length === 0) {
-      alert("太棒了！所有单词都已熟记（认识超过10次）！");
-      return; 
+      currentIndex = -1; 
+    } else {
+      // 正常抽取
+      let idx;
+      let safeCount = 0;
+      do {
+        idx = pool[Math.floor(Math.random() * pool.length)];
+        safeCount++;
+      } while (history.slice(-10).includes(idx) && safeCount < 50);
+      currentIndex = idx;
     }
-
-    // 从池中随机抽取，并尝试避开最近10个历史记录
-    let idx;
-    let safeCount = 0;
-    do {
-      idx = pool[Math.floor(Math.random() * pool.length)];
-      safeCount++;
-    } while (history.slice(-10).includes(idx) && safeCount < 50);
-    
-    currentIndex = idx;
   }
 
-  // 记录历史
-  history.push(currentIndex);
-  if(history.length > 30) history.shift();
+  // 记录历史（如果是-1代表通关，不记录）
+  if (currentIndex !== -1) {
+    history.push(currentIndex);
+    if (history.length > 30) history.shift();
+  }
 }
 
+/* ===== 渲染 (防崩溃最终版) ===== */
+function render() {
+  // ★ 防白屏检测 1：是否已通关
+  if (currentIndex === -1) {
+    document.getElementById("stat").innerText = "🎉 完美通关";
+    document.getElementById("word").innerText = "恭喜";
+    document.getElementById("meaning").innerText = "太棒了！所有单词都已熟记（认识 > 10次）！";
+    // 隐藏发音按钮
+    document.querySelector(".phonetic button").style.display = "none";
+    // 更新底部统计
+    document.getElementById("todo").innerText = "0";
+    document.getElementById("done").innerText = words.length;
+    return;
+  }
 
-  
-/* ===== 渲染 ===== */
-function render(){
+  // ★ 防白屏检测 2：如果索引异常，强制重置到第1个，救回页面
+  if (!words[currentIndex]) {
+    console.warn("索引异常，自动修复中...");
+    currentIndex = 0;
+  }
+
   const w = words[currentIndex];
+  
+  // 恢复发音按钮显示（因为通关时可能隐藏了）
+  document.querySelector(".phonetic button").style.display = "inline-block";
+
   document.getElementById("stat").innerText =
-    `不认识 ${w.unknown} 次 ｜ 认识 ${w.known} 次`;   // ★ 新增
+    `不认识 ${w.unknown} 次 ｜ 认识 ${w.known} 次`;
   document.getElementById("word").innerText = w.word;
   document.getElementById("meaning").innerText = w.meaning;
-  document.getElementById("todo").innerText = words.filter(w=>w.known<3).length;
-  document.getElementById("done").innerText = words.filter(w=>w.known>=3).length;
+  
+  // 底部统计：只统计还没背完的
+  document.getElementById("todo").innerText = words.filter(w => w.known <= 10).length;
+  document.getElementById("done").innerText = words.filter(w => w.known > 10).length;
+  
   save();
 }
+
+
+
+
+   
 
 /* ===== 操作 ===== */
 function markKnown(){
