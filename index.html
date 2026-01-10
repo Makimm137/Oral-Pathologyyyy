@@ -508,7 +508,10 @@ if(saved){
 
 
   
-/* ===== 调度池 (防崩溃最终版) ===== */
+/* ==========================================
+   ★ 3. 调度逻辑（核心修改版）
+   功能：新词优先，认识>10次剔除，防白屏
+   ========================================== */
 let pool = [];
 
 function pickNext() {
@@ -525,7 +528,7 @@ function pickNext() {
     // 2. 【复习逻辑】没有新词了，构建复习池
     pool = [];
     words.forEach((w, i) => {
-      // 认识超过10次，直接跳过
+      // ★ 认识超过10次，直接跳过
       if (w.known > 10) return;
 
       // 权重计算：不认识次数越多，出现概率越大
@@ -535,7 +538,7 @@ function pickNext() {
       for (let k = 0; k < weight; k++) pool.push(i);
     });
 
-    // ★ 关键修改：如果池子空了（全背完了），标记为 -1，防止报错白屏
+    // ★ 如果池子空了（全背完了），标记为 -1
     if (pool.length === 0) {
       currentIndex = -1; 
     } else {
@@ -557,43 +560,44 @@ function pickNext() {
   }
 }
 
-/* ===== 渲染 (防崩溃最终版) ===== */
+
+/* ==========================================
+   ★ 4. 渲染界面（防白屏版）
+   ========================================== */
 function render() {
-  // ★ 防白屏检测 1：是否已通关
+  // 场景A：全部背完
   if (currentIndex === -1) {
     document.getElementById("stat").innerText = "🎉 完美通关";
-    document.getElementById("word").innerText = "恭喜";
+    document.getElementById("word").innerText = "恭喜！";
     document.getElementById("meaning").innerText = "太棒了！所有单词都已熟记（认识 > 10次）！";
-    // 隐藏发音按钮
-    document.querySelector(".phonetic button").style.display = "none";
-    // 更新底部统计
+    document.getElementById("speakBtn").style.display = "none"; // 隐藏发音
     document.getElementById("todo").innerText = "0";
     document.getElementById("done").innerText = words.length;
     return;
   }
 
-  // ★ 防白屏检测 2：如果索引异常，强制重置到第1个，救回页面
+  // 场景B：数据异常（防白屏）
   if (!words[currentIndex]) {
-    console.warn("索引异常，自动修复中...");
-    currentIndex = 0;
+    console.log("检测到索引异常，正在重置...");
+    currentIndex = 0; // 强行救回第0个
+    if (!words[currentIndex]) return; // 如果连第0个都没有，说明words是空的
   }
 
   const w = words[currentIndex];
   
-  // 恢复发音按钮显示（因为通关时可能隐藏了）
-  document.querySelector(".phonetic button").style.display = "inline-block";
-
-  document.getElementById("stat").innerText =
-    `不认识 ${w.unknown} 次 ｜ 认识 ${w.known} 次`;
+  document.getElementById("speakBtn").style.display = "inline-block";
+  document.getElementById("stat").innerText = `不认识 ${w.unknown} 次 ｜ 认识 ${w.known} 次`;
   document.getElementById("word").innerText = w.word;
   document.getElementById("meaning").innerText = w.meaning;
   
-  // 底部统计：只统计还没背完的
-  document.getElementById("todo").innerText = words.filter(w => w.known <= 10).length;
-  document.getElementById("done").innerText = words.filter(w => w.known > 10).length;
+  // 底部统计：待背 = 认识次数<=10的
+  document.getElementById("todo").innerText = words.filter(x => x.known <= 10).length;
+  document.getElementById("done").innerText = words.filter(x => x.known > 10).length;
   
   save();
 }
+
+
 
 
 
