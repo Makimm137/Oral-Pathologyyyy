@@ -495,50 +495,130 @@ let currentIndex = Number(localStorage.getItem("currentIndex")) || 0;
 let saved = JSON.parse(localStorage.getItem("progress") || "null");
 
 /* ★ 新增：恢复 known + unknown */
-if(saved){
+if(saved && words && words.length > 0){
   saved.forEach((s,i)=>{
     if(words[i]){
-      words[i].known = s.known;
-      words[i].unknown = s.unknown;
+      words[i].known = s.known || 0;
+      words[i].unknown = s.unknown || 0;
     }
   });
 }
 
+
+
+
+  
 /* ===== 调度池 ===== */
 let pool = [];
 function buildPool(){
-  pool=[];
-  words.forEach((w,i)=>{
-    if(w.known<3){
-      pool.push(i,i,i);
-    }else{
-      for(let j=0;j<Math.ceil(w.known*1.5);j++) pool.push(i);
+  // 安全检查：确保words存在且非空
+  if (!words || words.length === 0) {
+    console.error("单词列表为空");
+    return;
+  }
+
+  pool = [];
+  words.forEach((w, i) => {
+    // 对于没背过的词，增加出现概率
+    if (w.known === 0 && w.unknown === 0) {
+      for (let j = 0; j < 5; j++) pool.push(i);
+    } 
+    // 对于认知度低的词，增加复习权重
+    else if (w.known < 3) {
+      for (let j = 0; j < 3; j++) pool.push(i);
+    } 
+    // 其他词按认知度调整权重
+    else {
+      const weight = Math.max(1, Math.ceil(w.known * 1.5));
+      for (let j = 0; j < weight; j++) pool.push(i);
     }
   });
 }
+
 function pickNext(){
+  // 安全检查
+  if (!words || words.length === 0) {
+    console.error("无法选择下一个单词：单词列表为空");
+    return;
+  }
+
   buildPool();
+
+  // 如果池子为空，重新构建
+  if (pool.length === 0) {
+    buildPool();
+  }
+
   let idx;
-  do{
-    idx = pool[Math.floor(Math.random()*pool.length)];
-  }while(history.slice(-10).includes(idx));
+  let safetyCounter = 0;
+  do {
+    idx = pool[Math.floor(Math.random() * pool.length)];
+    safetyCounter++;
+    
+    // 防止无限循环
+    if (safetyCounter > 100) {
+      console.warn("选词失败，使用随机索引");
+      idx = Math.floor(Math.random() * words.length);
+      break;
+    }
+  } while (history.slice(-10).includes(idx));
+
   history.push(idx);
-  if(history.length>30) history.shift();
+  if (history.length > 30) history.shift();
   currentIndex = idx;
 }
 
 /* ===== 渲染 ===== */
 function render(){
+  // 安全检查
+  if (!words || words.length === 0) {
+    console.error("渲染失败：单词列表为空");
+    document.body.innerHTML = '<h1>未找到单词数据</h1>';
+    return;
+  }
+
+  // 防止索引越界
+  if (currentIndex < 0 || currentIndex >= words.length) {
+    console.warn(`索引异常：${currentIndex}，重置为0`);
+    currentIndex = 0;
+  }
+
   const w = words[currentIndex];
+  
+  // 确保单词对象存在
+  if (!w) {
+    console.error(`未找到索引 ${currentIndex} 对应的单词`);
+    return;
+  }
+
   document.getElementById("stat").innerText =
-    `不认识 ${w.unknown} 次 ｜ 认识 ${w.known} 次`;   // ★ 新增
-  document.getElementById("word").innerText = w.word;
-  document.getElementById("meaning").innerText = w.meaning;
-  document.getElementById("todo").innerText = words.filter(w=>w.known<3).length;
-  document.getElementById("done").innerText = words.filter(w=>w.known>=3).length;
+    `不认识 ${w.unknown || 0} 次 ｜ 认识 ${w.known || 0} 次`;
+  document.getElementById("word").innerText = w.word || '未知';
+  document.getElementById("meaning").innerText = w.meaning || '暂无释义';
+  
+  document.getElementById("todo").innerText = words.filter(w => (w.known || 0) < 3).length;
+  document.getElementById("done").innerText = words.filter(w => (w.known || 0) >= 3).length;
+  
   save();
 }
 
+// 初始化安全加载
+function initApp() {
+  try {
+    pickNext();
+    render();
+  } catch (error) {
+    console.error("初始化失败:", error);
+    alert("加载出错，请刷新重试");
+  }
+}
+
+// 页面加载时触发
+window.onload = initApp;
+
+
+
+  
 /* ===== 操作 ===== */
 function markKnown(){
   words[currentIndex].known++;
