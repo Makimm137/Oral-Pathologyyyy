@@ -618,7 +618,7 @@ function render(){
   document.getElementById("word").innerText = w.word || '未知';
   document.getElementById("meaning").innerText = w.meaning || '暂无释义';
   
-  const todoWords = words.filter(w => (w.known || 0) <= 8);
+  const todoWords = words.filter(w => (w.known || 0) <= 3);
   document.getElementById("todo").innerText = todoWords.length;
   document.getElementById("done").innerText = words.length - todoWords.length;
   
