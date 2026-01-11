@@ -507,6 +507,7 @@ if(saved && words && words.length > 0){
 
 
 
+
   
 /* ===== 调度池 ===== */
 let pool = [];
@@ -518,26 +519,32 @@ function buildPool(){
   }
 
   pool = [];
-  words.forEach((w, i) => {
-    // 认识次数大于8的不再加入池子
-    if (w.known > 8) return;
+  
+  // 按 known 次数从0开始递增排序
+  for (let knowCount = 0; knowCount <= 8; knowCount++) {
+    const currentLevelWords = words.filter(w => 
+      w.known === knowCount && w.known <= 8
+    );
 
-    // 对于没背过的词，增加出现概率
-    if (w.known === 0 && w.unknown === 0) {
-      for (let j = 0; j < 5; j++) pool.push(i);
-    } 
-    // 对于认知度低的词，增加复习权重
-    else if (w.known < 3) {
-      for (let j = 0; j < 3; j++) pool.push(i);
-    } 
-    // 其他词按认知度调整权重
-    else {
-      const weight = Math.max(1, Math.ceil(w.known * 1.5));
-      for (let j = 0; j < weight; j++) pool.push(i);
-    }
-  });
+    // 如果当前级别没有单词，继续下一个级别
+    if (currentLevelWords.length === 0) continue;
+
+    // 先找出当前级别的索引
+    const currentLevelIndexes = currentLevelWords.map(w => words.indexOf(w));
+    
+    // 添加到池子中
+    currentLevelIndexes.forEach(idx => {
+      // 根据级别增加权重
+      const weight = knowCount === 0 ? 5 : (knowCount + 1);
+      for (let j = 0; j < weight; j++) {
+        pool.push(idx);
+      }
+    });
+
+    // 如果当前级别有单词，就只处理这个级别
+    break;
+  }
 }
-
 
 function pickNext(){
   // 安全检查
@@ -548,9 +555,10 @@ function pickNext(){
 
   buildPool();
 
-  // 如果池子为空，重新构建
+  // 如果池子为空，说明已经全部背完
   if (pool.length === 0) {
-    buildPool();
+    currentIndex = -1; // 表示全部背完
+    return;
   }
 
   let idx;
@@ -574,6 +582,16 @@ function pickNext(){
 
 /* ===== 渲染 ===== */
 function render(){
+  // 全部背完的场景
+  if (currentIndex === -1) {
+    document.getElementById("stat").innerText = "🎉 完美通关";
+    document.getElementById("word").innerText = "恭喜！";
+    document.getElementById("meaning").innerText = "太棒了！所有单词都已熟记！";
+    document.getElementById("todo").innerText = "0";
+    document.getElementById("done").innerText = words.length;
+    return;
+  }
+
   // 安全检查
   if (!words || words.length === 0) {
     console.error("渲染失败：单词列表为空");
@@ -600,8 +618,9 @@ function render(){
   document.getElementById("word").innerText = w.word || '未知';
   document.getElementById("meaning").innerText = w.meaning || '暂无释义';
   
-  document.getElementById("todo").innerText = words.filter(w => (w.known || 0) < 3).length;
-  document.getElementById("done").innerText = words.filter(w => (w.known || 0) >= 3).length;
+  const todoWords = words.filter(w => (w.known || 0) <= 8);
+  document.getElementById("todo").innerText = todoWords.length;
+  document.getElementById("done").innerText = words.length - todoWords.length;
   
   save();
 }
@@ -619,6 +638,9 @@ function initApp() {
 
 // 页面加载时触发
 window.onload = initApp;
+
+
+  
 
 
 
