@@ -519,6 +519,9 @@ function buildPool(){
 
   pool = [];
   words.forEach((w, i) => {
+    // 认识次数大于8的不再加入池子
+    if (w.known > 8) return;
+
     // 对于没背过的词，增加出现概率
     if (w.known === 0 && w.unknown === 0) {
       for (let j = 0; j < 5; j++) pool.push(i);
@@ -534,6 +537,7 @@ function buildPool(){
     }
   });
 }
+
 
 function pickNext(){
   // 安全检查
